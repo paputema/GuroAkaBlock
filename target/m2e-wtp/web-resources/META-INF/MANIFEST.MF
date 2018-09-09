@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+Implementation-Title: GuroAkaBlock
+Implementation-Version: 0.0.1-SNAPSHOT
+Built-By: paputema
+Implementation-Vendor-Id: GuroAkaBlock
+Build-Jdk: 1.8.0_162
+Implementation-URL: http://projects.spring.io/spring-boot/GuroAkaBlock
+ /
+Created-By: Maven Integration for Eclipse
+Implementation-Vendor: Pivotal Software, Inc.
+

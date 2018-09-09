@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>グロ画像リプライアカウントを検索するやつ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"	rel="stylesheet" />
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" 	rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-social/5.1.1/bootstrap-social.css" rel="stylesheet" />
+<style type="text/css">
+
+
+a {
+	text-decoration: underline;
+}
+
+.btn {
+	text-decoration: none;
+}
+
+div.wrapper {
+	display: inline-block;
+	overflow: hidden;
+}
+
+img.blur  {
+	-webkit-filter: blur(4px);
+	filter: blur(4px);
+	-webkit-transition: .1s;
+	transition: .1s;
+}
+img.blur_l  {
+	-webkit-filter: blur(12px);
+	filter: blur(12px);
+	-webkit-transition: .1s;
+	transition: .1s;
+}
+.trim {
+    overflow: hidden;
+  	width: auto;
+  	max-height: 256px;
+    position: relative;
+    object-fit: cover;
+}
+ul li div {
+	display: table-cell;
+	margin: 0;
+	vertical-align: top;
+}
+.card-img {
+  border-radius: 5px 5px 0 0;
+  width: auto;
+  max-height: 256px;
+}
+
+</style>
+</head>
+<body>
+	<script
+		src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script
+		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+	<div class="container">
+		<div class="jumbotron">
+			<div>
+
+				<h2>
+					<a th:href="@{/}" href="/">グロ画像リプライアカウントを検索するやつ</a>
+				</h2>
+				<p>「#このリプ欄にはグロ画像があります」タグのリプライ・引用RTとその宛先のツイート及び、その間に存在するリプライ＝グロリプの可能性があるリプライを表示します。</p>
+
+				<a th:href="@{/} + ''" href="/">一括でブロックするやつに戻る</a>
+				<div>
+					当アプリの動作などに気になる点があればこちらへお問い合わせください。→ <a
+						href="https://twitter.com/messages/compose?recipient_id=251211966"
+						data-screen-name="Chupacabras_MON" data-show-count="false">アプリの作者にDMを送る</a>
+					<script src="//platform.twitter.com/widgets.js" charset="utf-8">
+						DMをおくる
+					</script>
+				</div>
+
+
+			</div>
+				<div class="card bg-success">
+					<div class="card-header">
+						<h2 class="card-title">被害ツイート</h2>
+					</div>
+					<ul class="list-group list-group-flush">
+						<li th:object="${TargetStatus}" class="list-group-item" th:if="${TargetStatus} != null">
+							<div class="card">
+								<div class="card-header">
+									<div class="wrapper">
+										<img class="blur" th:src="*{iconUrl}" src="https://pbs.twimg.com/profile_images/953597928026783744/1o7CUVug_normal.jpg"></img>
+									</div>
+									<a th:href="*{userUrl}"
+									th:text="*{userName}">test</a> <a th:href="*{userUrl}" th:if="*{userName} == ''" th:text="*{screenName}"></a>
+								</div>
+								<div class="card-body">
+									<div th:text="*{statusText}"></div>
+									<div class="wrapper" th:if="*{hasImage}">
+										<img class="blur_l wrapper card-img" th:each="media:*{mediaUrlList}" th:object="${media}" th:src="${media}"
+											src="https://pbs.twimg.com/media/DTu81gxVAAAa3cl.jpg:thumb"></img>
+									</div>
+								</div>
+								<div class="card-footer">
+									<a th:href="*{statusUrl}">ツイッターで開く<span class="fa fa-twitter"></span></a>
+								</div>
+							</div>
+						</li>
+					</ul>
+				</div>
+
+				<div class="card bg-danger">
+					<div class="card-header">
+						<h2 class="card-title">リプライ一覧</h2>
+					</div>
+					<ul class="list-group list-group-flush">
+						<li th:each="GuroStatusE:${GuroStatus}" th:object="${GuroStatusE}" class="list-group-item" th:if="${GuroStatusE} != null">
+						<div class="card">
+								<div class="card-header">
+									<div class="wrapper">
+										<img class="blur" th:src="*{iconUrl}" src="https://pbs.twimg.com/profile_images/953597928026783744/1o7CUVug_normal.jpg"></img>
+									</div>
+									<a th:href="*{userUrl}"
+									th:text="*{userName}">test</a> <a th:href="*{userUrl}" th:if="*{userName} == ''" th:text="*{screenName}"></a>
+								</div>
+								<div class="card-body">
+									<div th:text="*{statusText}"></div>
+									<div class="wrapper" th:if="*{hasImage}">
+										<img class="blur_l wrapper card-img" th:each="media:*{mediaUrlList}" th:object="${media}" th:src="${media}"
+											src="https://pbs.twimg.com/media/DTu81gxVAAAa3cl.jpg:thumb"></img>
+									</div>
+								</div>
+								<div class="card-footer">
+									<a th:href="*{statusUrl}">ツイッターで開く<span class="fa fa-twitter"></span></a>
+								</div>
+							</div>
+						</li>
+					</ul>
+				</div>
+
+				<div class="card bg-warning">
+					<div class="card-header">
+						<h2>注意喚起タグ一覧</h2>
+					</div>
+					<ul class="list-group list-group-flush">
+						<li th:each="AlertTagStatusE:${AlertTagStatus}" th:object="${AlertTagStatusE}" class="list-group-item" th:if="${AlertTagStatusE} != null">
+							<div class="card">
+								<div class="card-header">
+									<div class="wrapper">
+										<img class="blur" th:src="*{iconUrl}" src="https://pbs.twimg.com/profile_images/953597928026783744/1o7CUVug_normal.jpg"></img>
+									</div>
+									<a th:href="*{userUrl}"
+									th:text="*{userName}">test</a> <a th:href="*{userUrl}" th:if="*{userName} == ''" th:text="*{screenName}"></a>
+								</div>
+								<div class="card-body">
+									<div th:text="*{statusText}"></div>
+									<div class="wrapper" th:if="*{hasImage}">
+										<img class="blur_l wrapper card-img" th:each="media:*{mediaUrlList}" th:object="${media}" th:src="${media}"
+											src="https://pbs.twimg.com/media/DTu81gxVAAAa3cl.jpg:thumb"></img>
+									</div>
+								</div>
+								<div class="card-footer">
+									<a th:href="*{statusUrl}">ツイッターで開く<span class="fa fa-twitter"></span></a>
+								</div>
+							</div>
+						</li>
+					</ul>
+				</div>
+
+			<div>
+				作った人：<a href="https://twitter.com/Chupacabras_MON">悶絶チュパカブラ<span
+					class="fa fa-twitter"></span></a>
+			</div>
+		</div>
+	</div>
+</body>
+
+</html>

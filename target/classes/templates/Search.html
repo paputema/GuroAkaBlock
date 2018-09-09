@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>グロ画像リプライアカウントを検索するやつ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" 	rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-social/5.1.1/bootstrap-social.css" rel="stylesheet" />
+<style type="text/css">
+.panel {
+	border: 2px solid #ddd;
+	margin-top: 20px;
+	margin-bottom: 0px;
+}
+
+div {
+	margin-bottom: 0px;
+}
+
+a {
+	text-decoration: underline;
+}
+
+.btn {
+	text-decoration: none;
+}
+
+div.wrapper {
+	display: inline-block;
+	overflow: hidden;
+}
+
+img.blur  {
+	-webkit-filter: blur(4px);
+	filter: blur(4px);
+	-webkit-transition: .1s;
+	transition: .1s;
+	width: auto;
+  	max-height: 256px;
+}
+img.blur_l  {
+	-webkit-filter: blur(12px);
+	filter: blur(12px);
+	-webkit-transition: .1s;
+	transition: .1s;
+	width: auto;
+  	max-height: 256px;
+}
+.trim {
+    position: relative;
+    object-fit: cover;
+
+}
+ul li div {
+	display: table-cell;
+	margin: 0;
+	vertical-align: middle;
+}
+</style>
+</head>
+<body>
+	<script
+		src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script
+		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+	<div class="container">
+		<div class="jumbotron">
+			<div>
+
+				<h2>
+					<a th:href="@{/}" href="/">グロ画像リプライアカウントを検索するやつ</a>
+				</h2>
+				<p>グロ画像をリプライするアカウントをリストアップします、動作が確認できたこととリスト作成者が不足してきたため、ブロック対象に追加する様にしました。</p>
+
+				<a th:href="@{/} + ''" href="/">一括でブロックするやつに戻る</a>
+				<div>
+					当アプリの動作などに気になる点があればこちらへお問い合わせください。→ <a
+						href="https://twitter.com/messages/compose?recipient_id=251211966"
+						data-screen-name="Chupacabras_MON" data-show-count="false">アプリの作者にDMを送る</a>
+					<script src="//platform.twitter.com/widgets.js" charset="utf-8">
+						DMをおくる
+					</script>
+				</div>
+
+
+			</div>
+			<div class="row">
+				<div class="panel panel-danger">
+					<div class="panel-heading">
+						<h2 class="panel-title" th:text="${ret}" id="result">一覧</h2>
+					</div>
+					<ul class="list-group">
+						<li th:each="Result:${Resultlist}" th:object="${Result}" class="list-group-item" th:if="${Result.screenname} != null">
+							<div class="wrapper">
+								<img class="blur" th:src="*{iconurl}" src="https://pbs.twimg.com/profile_images/953597928026783744/1o7CUVug_normal.jpg"></img>
+							</div> <a th:href="'https://twitter.com/intent/user?user_id='+ *{userid}"
+							th:text="*{username}">test</a> <a
+							th:href="'https://twitter.com/intent/user?user_id='+ *{userid}"
+							th:if="*{username} == ''" th:text="*{screenname}"></a>
+							<div class="wrapper trim " th:if="*{imgurl} != null">
+								<img class="blur_l" th:src="*{imgurl}"
+									src="https://pbs.twimg.com/media/DTu81gxVAAAa3cl.jpg:thumb"></img>
+							</div>
+						</li>
+					</ul>
+				</div>
+			</div>
+			<div>
+				作った人：<a href="https://twitter.com/Chupacabras_MON">悶絶チュパカブラ<span
+					class="fa fa-twitter"></span></a>
+			</div>
+		</div>
+	</div>
+</body>
+
+</html>
