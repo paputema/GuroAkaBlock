@@ -85,7 +85,7 @@ public class GuroAkaBlockCron {
 		}
 	}
 
-	@Scheduled(initialDelay = 15 * 60 * 1000, fixedDelay = 10 * 1000)
+	@Scheduled(initialDelay = 0 * 60 * 1000, fixedDelay = 10 * 1000)
 	public void AutoBlock() {
 		LOG.info("自動Block開始");
 		List<Future<?>> futures = new ArrayList<Future<?>>();

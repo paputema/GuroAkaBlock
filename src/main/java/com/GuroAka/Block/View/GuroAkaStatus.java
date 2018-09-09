@@ -3,8 +3,6 @@ package com.GuroAka.Block.View;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import javax.servlet.http.HttpSession;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -25,9 +23,6 @@ import twitter4j.Status;
 public class GuroAkaStatus {
 	@Value("${api.domain}") private String domain;
 	@Autowired
-	private HttpSession session;
-
-	@Autowired
 	private AlertTagSearchResultDataRepository alertTagSearchResultDataRepository;
 
 	@RequestMapping(value="/Status/{targetId}" , method = RequestMethod.GET)
@@ -37,17 +32,17 @@ public class GuroAkaStatus {
 		{
 			mav.addObject("TargetStatus", new StatusObject(alertTagSearchResultData.getTargetStatus()));
 
-			Collection<StatusObject> a = new ArrayList<StatusObject>();
+			Collection<StatusObject> alertTagStatus = new ArrayList<StatusObject>();
 			for (Status status : alertTagSearchResultData.getAlertTagStatus()) {
-				a.add(new StatusObject(status));
+				alertTagStatus.add(new StatusObject(status));
 			}
-			mav.addObject("AlertTagStatus", a);
+			mav.addObject("AlertTagStatus", alertTagStatus);
 
-			Collection<StatusObject> b = new ArrayList<StatusObject>();
+			Collection<StatusObject> guroStatus = new ArrayList<StatusObject>();
 			for (Status status : alertTagSearchResultData.getGuroStatus()) {
-				b.add(new StatusObject(status));
+				guroStatus.add(new StatusObject(status));
 			}
-			mav.addObject("GuroStatus", b);
+			mav.addObject("GuroStatus", guroStatus);
 
 
 		}

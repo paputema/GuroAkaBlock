@@ -1,4 +1,15 @@
 package com.GuroAka.Block.View;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
 import com.GuroAka.Block.Twitter.GuroAkaTwitter;
 import com.GuroAka.Block.Twitter.GuroAkaTwitter.TwitterBlocker;
 import com.GuroAka.Block.Twitter.Results;
@@ -9,15 +20,6 @@ import com.GuroAka.Block.repositories.GuroAccountDataRepository;
 import com.GuroAka.Block.repositories.UserAccountDataRepository;
 import com.GuroAka.Block.repositories.WhiteListAccountDataRepository;
 
-import java.util.ArrayList;
-import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.servlet.ModelAndView;
 import twitter4j.Status;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
@@ -227,6 +229,7 @@ public class GuroAkaBlock {
 			session.setAttribute("user", user.getName() + "(@" + user.getScreenName() + ")");
 
 			Results doBlock = twitterBlocker.doBlock();
+
 			session.setMaxInactiveInterval(3600);
 
 			session.setAttribute("retnotblocklist",doBlock.getListResultNotBlock());

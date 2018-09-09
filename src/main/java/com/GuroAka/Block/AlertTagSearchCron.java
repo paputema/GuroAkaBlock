@@ -1,8 +1,6 @@
 package com.GuroAka.Block;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
@@ -46,7 +44,7 @@ public class AlertTagSearchCron {
 	private static final Log LOG = LogFactory.getLog(AlertTagSearchCron.class);
 
 
-	@Scheduled(initialDelay = 0 * 60 * 1000, fixedDelay = 10 * 60 * 1000)
+	@Scheduled(initialDelay = 10 * 60 * 1000, fixedDelay = 10 * 60 * 1000)
 	public void alertTagSearch() {
 		LOG.info("注意喚起タグ検索開始");
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -122,9 +120,7 @@ public class AlertTagSearchCron {
 		query.setSinceId(searchSinceId);
 		query.setMaxId(alertTagStatus.getId());
 		QueryResult queryResult = null;
-		String lastQuery ="";
 		if(RateLimitChecker.checkRateLimit(rateLimitStatusSearch)){
-			lastQuery = query.getQuery();
 			LOG.info(query.getQuery());
 			do  {
 				try {
@@ -150,18 +146,12 @@ public class AlertTagSearchCron {
 			LOG.info(alertTagSearchResultData.toString());
 			alertTagSearchResultDataRepository.saveAndFlush(alertTagSearchResultData);
 
-			try {
-				String searchUrl = "https://twitter.com/search?f=tweets&q=" + URLEncoder.encode(lastQuery, "UTF-8");
-				String status = "(新機能試験中)" + ls
-						+ "被害者 https://twitter.com/-/status/"  + searchSinceId + ls
-						+ "タグ https://twitter.com/-/status/" + alertTagStatus.getId() + ls
-						+ "http://chupacabrasmon.ddns.net/GuroAkaBlock/Status/" + searchSinceId;
-				StatusUpdate statusUpdate = new StatusUpdate(status);
-				reportTweet(statusUpdate);
-			} catch (UnsupportedEncodingException e) {
-				// TODO 自動生成された catch ブロック
-				e.printStackTrace();
-			}
+			String status = "(新機能試験中)" + ls
+					+ "被害者 https://twitter.com/-/status/"  + searchSinceId + ls
+					+ "タグ https://twitter.com/-/status/" + alertTagStatus.getId() + ls
+					+ "http://chupacabrasmon.ddns.net/GuroAkaBlock/Status/" + searchSinceId;
+			StatusUpdate statusUpdate = new StatusUpdate(status);
+			reportTweet(statusUpdate);
 		}
 		LOG.debug("サイズ ("+ this.getClass().getName() +")：" + RamUsageEstimator.sizeOf(this));
 	}

@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -104,13 +103,10 @@ public class GuroAkaTwitter {
 	public TwitterBlocker TwitterBlockerGetInstance(Twitter twitter)
 	{
 		TwitterBlocker ret = new TwitterBlocker(twitter);
-		ret.getGuroAkaUsers();
 		return ret;
 	}
 	public TwitterBlocker TwitterBlockerGetInstanceByManager(Twitter twitter) {
 		TwitterBlocker ret = new TwitterBlocker(twitter);
-		ret.guroAkaUsers = managerTwitter.guroAkaUsers;
-		ret.whiteAkaUsers = managerTwitter.whiteAkaUsers;
 		return ret;
 	}
 
@@ -118,15 +114,11 @@ public class GuroAkaTwitter {
 		public TwitterBlocker()
 		{
 			this.twitter = TwitterFactory.getSingleton();
-			this.guroAkaUsers = Collections.synchronizedMap(new HashMap<Long,User>());
-			this.whiteAkaUsers = Collections.synchronizedMap(new HashMap<Long,User>());
 			this.getGuroAkaUsers();
 		}
 		public TwitterBlocker(Twitter twitter)
 		{
 			this.twitter = twitter;
-			this.guroAkaUsers = Collections.synchronizedMap(new HashMap<Long,User>());
-			this.whiteAkaUsers = Collections.synchronizedMap(new HashMap<Long,User>());
 		}
 
 		private RateLimitStatus rateLimitStatusGetRtw = null;
@@ -143,8 +135,6 @@ public class GuroAkaTwitter {
 			return ret;
 		}
 		private Twitter twitter;
-		private Map<Long,User> guroAkaUsers;
-		private Map<Long,User> whiteAkaUsers;
 		private List<ListDetail> listDetails;
 
 		private void GuroAkaCsv2Db() {
@@ -178,7 +168,7 @@ public class GuroAkaTwitter {
 				for (GuroAkaCsv guroAkaCsv : guroAkaCsvs) {
 					try {
 						User user = showUser(guroAkaCsv.getUserId());
-						if(!guroAkaUsers.containsKey(user.getId()) && !whiteAkaUsers.containsKey(user.getId()))
+						if(guroAccountDataRepository.findByUserid(user.getId()) == null &&  whiteListAccountDataRepository.findAllByUserid(user.getId()) == null)
 						{
 							guroAccountDataRepository.saveAndFlush(new DataGuroAccount(user));
 						}
@@ -282,7 +272,8 @@ public class GuroAkaTwitter {
 			return returnUsers;
 		}
 		private User showUser(Long id) throws TwitterException {
-			User returnUser = guroAkaUsers.get(id);
+			//User returnUser = guroAkaUsers.get(id);
+			User returnUser = null;
 			if(returnUser== null){
 				returnUser = twitter.showUser(id);
 				sleepRateLimit(returnUser.getRateLimitStatus());
@@ -344,8 +335,16 @@ public class GuroAkaTwitter {
 				long UserId = twitter.getId();
 				Calendar calendar = Calendar.getInstance();
 				calendar.add(Calendar.MONTH, -3);
-				for (User guroAkaUser : guroAkaUsers.values()) {
-					DataBlockedHistory blockedHistory = isBlocked(new DataBlockedHistoryKeyId(UserId, guroAkaUser.getId()));
+
+				Map<Long, DataBlockedHistory> mapBlockedHistory =  repositoryDataBlockedHistory.findByUseridMap(UserId);
+
+				for (User guroAkaUser : getGuroAkaUsers().values()) {
+					DataBlockedHistory blockedHistory =  mapBlockedHistory.get(guroAkaUser.getId());
+					if(blockedHistory == null)
+					{
+						isBlocked(new DataBlockedHistoryKeyId(UserId, guroAkaUser.getId()));
+						mapBlockedHistory.put(guroAkaUser.getId(), blockedHistory);
+					}
 					try {
 						switch (blockedHistory.getBlocked()) {
 						case UnBlocked:
@@ -384,16 +383,24 @@ public class GuroAkaTwitter {
 						ListResultBlock.add(new Result(guroAkaUser,e.getErrorMessage() + ":" + e.getMessage()));
 						checkRateLimit(e.getRateLimitStatus());
 					}
-					repositoryDataBlockedHistory.saveAndFlush(blockedHistory);
+					repositoryDataBlockedHistory.save(blockedHistory);
 				}
-				for (User whiteAkaUser : whiteAkaUsers.values()) {
-					DataBlockedHistory blockedHistory = isBlocked(new DataBlockedHistoryKeyId(UserId, whiteAkaUser.getId()));
+				for (User whiteAkaUser : GetWhiteAkaByDb().values()) {
+					DataBlockedHistory blockedHistory =  mapBlockedHistory.get(whiteAkaUser.getId());
+					if(blockedHistory == null)
+					{
+						isBlocked(new DataBlockedHistoryKeyId(UserId, whiteAkaUser.getId()));
+						mapBlockedHistory.put(whiteAkaUser.getId(), blockedHistory);
+					}
 					if (blockedHistory.getBlocked() == Blockresult.InWhiteListBlocked) {
 						checkRateLimit(twitter.destroyBlock(whiteAkaUser.getId()).getRateLimitStatus());
 						ListResultNotBlock.add(new Result(whiteAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました"));
+						blockedHistory.setBlocked(Blockresult.InWhiteListUnBlocked);
+
 					}
-					repositoryDataBlockedHistory.saveAndFlush(blockedHistory);
+					repositoryDataBlockedHistory.save(blockedHistory);
 				}
+				repositoryDataBlockedHistory.flush();
 				blockLogDataRepository.saveAndFlush(new DataBlockLog(UserId));
 			} catch (TwitterException e) {
 				// TODO 自動生成された catch ブロック
@@ -403,17 +410,21 @@ public class GuroAkaTwitter {
 			return new Results(ListResultBlock,ListResultNotBlock,ResultsText);
 		}
 		public Map<Long,User> getGuroAkaUsers() {
-			GetGuroAkaByList();
-			GetGuroAkaByFollowee();
-			GetGuroAkaByDb();
-			GttGuroAkaBySearch();
-			GetWhiteAkaByDb();
-			for (Long key : whiteAkaUsers.keySet()) {
+			Map<Long,User> guroAkaUsers = new HashMap<Long,User>();
+			GetGuroAkaByList(guroAkaUsers);
+			GetGuroAkaByDb(guroAkaUsers);
+			GetGuroAkaByFollowee(guroAkaUsers);
+			getGuroAkaBySearch(guroAkaUsers);
+
+
+			for (Long key : GetWhiteAkaByDb().keySet()) {
 				guroAkaUsers.remove(key);
 			}
+
+
 			return guroAkaUsers;
 		}
-		private void GttGuroAkaBySearch() {
+		private void getGuroAkaBySearch(Map<Long,User> guroAkaUsers) {
 			for (DataSearchResult guroAka : guroAkaSearchResultDataRepository.findAll()) {
 				try {
 					User guroUser = twitter.showUser(guroAka.getUserid());
@@ -439,7 +450,7 @@ public class GuroAkaTwitter {
 			}
 			guroAccountDataRepository.flush();
 		}
-		private boolean GetGuroAkaByList() {
+		private boolean GetGuroAkaByList(Map<Long,User> guroAkaUsers) {
 			for (DataGuroAccountList dataGuroAccountList : listDataRepository.findAll()) {
 				Map<Long, User> users = GetGuroAkaByList(dataGuroAccountList.getListid());
 				deletelisted(users);
@@ -447,7 +458,7 @@ public class GuroAkaTwitter {
 			}
 			return true;
 		}
-		private boolean GetGuroAkaByFollowee() {
+		private boolean GetGuroAkaByFollowee(Map<Long,User> guroAkaUsers) {
 			for (DataVolunteerList dataVolunteerList : volunteerDataRepository.findAll()) {
 				Map<Long, User> users = GetGuroAkaByFollowee(dataVolunteerList);
 				deletelisted(users);
@@ -455,7 +466,7 @@ public class GuroAkaTwitter {
 			}
 			return true;
 		}
-		private boolean GetGuroAkaByDb() {
+		private boolean GetGuroAkaByDb(Map<Long,User> guroAkaUsers) {
 			for (DataGuroAccount dataGuroAccount : guroAccountDataRepository.findAll()) {
 
 				User user;
@@ -494,28 +505,26 @@ public class GuroAkaTwitter {
 			}
 			return true;
 		}
-		private boolean GetWhiteAkaByDb() {
-			for (DataWhiteListAccount dataWhiteListAccount : whiteListAccountDataRepository.findAll()) {
+		private Map<Long,User> GetWhiteAkaByDb() {
+			Map<Long,User> whiteAkaUsers = new HashMap<Long,User>();
 
-				if (dataWhiteListAccount.getUserid() != null) {
-					try {
-						whiteAkaUsers.put(dataWhiteListAccount.getUserid(),showUser(dataWhiteListAccount.getUserid()));
-					} catch (TwitterException e) {
-						// TODO 自動生成された catch ブロック
-						switch (e.getErrorCode()) {
-						}
-					}
+			List<DataWhiteListAccount>  dataWhiteListAccountList =  whiteListAccountDataRepository.findAll();
+
+			for (DataWhiteListAccount dataWhiteListAccount : dataWhiteListAccountList) {
+				if (dataWhiteListAccount.getUserid() != null && dataWhiteListAccount.getUser() != null) {
+					whiteAkaUsers.put(dataWhiteListAccount.getUserid(),(dataWhiteListAccount.getUser()));
 				} else {
 					try {
 						User user = showUser(dataWhiteListAccount.getScreenname());
 						dataWhiteListAccount.setUserid(user.getId());
 						dataWhiteListAccount.setUsername(user.getName());
 						dataWhiteListAccount.setIconurl(user.getProfileImageURL());
+						dataWhiteListAccount.setUser(user);
 						Status status = user.getStatus();
 						if (status != null && status.getMediaEntities().length > 0) {
 							dataWhiteListAccount.setImgurl(status.getMediaEntities()[0].getMediaURL());
 						}
-						whiteListAccountDataRepository.saveAndFlush(dataWhiteListAccount);
+						whiteListAccountDataRepository.save(dataWhiteListAccount);
 						whiteAkaUsers.put(user.getId(),user);
 					} catch (TwitterException e) {
 						// TODO 自動生成された catch ブロック
@@ -524,12 +533,14 @@ public class GuroAkaTwitter {
 					}
 				}
 			}
-			return true;
+			whiteListAccountDataRepository.flush();
+			return whiteAkaUsers;
 		}
 		public Results doBlockDestroy() {
 			// TODO 自動生成されたメソッド・スタブ
 			final List<Result> ListResultBlock = new ArrayList<>();
 			final List<Result> ListResultNotBlock = new ArrayList<>();
+			Map<Long, User> guroAkaUsers = getGuroAkaUsers();
 			String ResultsText= new String();
 			ExecutorService executorService = Executors.newCachedThreadPool();
 			try {
@@ -570,7 +581,7 @@ public class GuroAkaTwitter {
 					};
 				});
 
-				for (User whiteAkaUser : whiteAkaUsers.values()) {
+				for (User whiteAkaUser : GetWhiteAkaByDb().values()) {
 					DataBlockedHistory blockedHistory = isBlocked(new DataBlockedHistoryKeyId(UserId, whiteAkaUser.getId()));
 					if (blockedHistory.getBlocked() == Blockresult.InWhiteListBlocked) {
 						checkRateLimit(twitter.destroyBlock(whiteAkaUser.getId()).getRateLimitStatus());
@@ -702,7 +713,7 @@ public class GuroAkaTwitter {
 			Long UserId = twitter.getId();
 			Relationship relationship = twitter.showFriendship(UserId, guroAkaId);
 			sleepRateLimit(relationship.getRateLimitStatus());
-			if ((managerTwitter.whiteAkaUsers.containsKey(guroAkaId) || relationship.isSourceFollowingTarget()) && relationship.isSourceBlockingTarget()) {
+			if ((managerTwitter.GetWhiteAkaByDb().containsKey(guroAkaId) || relationship.isSourceFollowingTarget()) && relationship.isSourceBlockingTarget()) {
 				twitter.destroyBlock(guroAkaId);
 				LOG.debug(twitter.getId() + "が" + guroAkaId + "をブロック解除");
 			} else if (!relationship.isSourceBlockingTarget()) {
