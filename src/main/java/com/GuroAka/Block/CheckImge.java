@@ -17,7 +17,7 @@ import com.GuroAka.Block.repositories.GuroAkaSearchResultDataRepository;
 import com.GuroAka.Block.repositories.GuroAkaSearchTrackDataRepository;
 import com.GuroAka.Block.repositories.URLSearchTrackDateRepository;
 
-import twitter4j.MediaEntity;
+import twitter4j.ExtendedMediaEntity;
 import twitter4j.Status;
 import twitter4j.URLEntity;
 
@@ -56,8 +56,8 @@ public class CheckImge {
 		public void run() {
 			// TODO 自動生成されたメソッド・スタブ
 
-			MediaEntity[] mediaEntities = status.getMediaEntities();
-			for (MediaEntity mediaEntity : mediaEntities) {
+			ExtendedMediaEntity[] mediaEntities = status.getExtendedMediaEntities();
+			for (ExtendedMediaEntity mediaEntity : mediaEntities) {
 				DateSearchTrack dateSearchTrack = trackDataRepository.findByGuroImageURL(mediaEntity.getMediaURLHttps());
 				if (dateSearchTrack != null && dateSearchTrack.getGuroakauserid().equals(status.getUser().getId()) == false) {
 					LOG.info(status.getUser().getName() +"(@" + status.getUser().getScreenName() + ")" + status.getText());

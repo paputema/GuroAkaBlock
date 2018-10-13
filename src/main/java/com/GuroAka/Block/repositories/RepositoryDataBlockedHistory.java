@@ -15,6 +15,7 @@ import com.GuroAka.Block.data.DataBlockedHistoryKeyId;
 public interface RepositoryDataBlockedHistory  extends JpaRepository<DataBlockedHistory,DataBlockedHistoryKeyId>{
 
 	Collection<DataBlockedHistory> findByUserid(Long userid);
+	void deleteByUserid(Long userid);
 	public default Map<Long,DataBlockedHistory> findByUseridMap(Long userid)
 	{
 		Map<Long,DataBlockedHistory> ret = new HashMap<Long, DataBlockedHistory>();
@@ -25,5 +26,8 @@ public interface RepositoryDataBlockedHistory  extends JpaRepository<DataBlocked
 		return ret;
 
 	}
+	Collection<DataBlockedHistory> findByGuroakaid(Long guroakaId);
+
+
 
 }

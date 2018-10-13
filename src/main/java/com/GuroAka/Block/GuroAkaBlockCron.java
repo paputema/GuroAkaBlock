@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import com.GuroAka.Block.Twitter.GuroAkaTwitter;
 import com.GuroAka.Block.Twitter.GuroAkaTwitter.TwitterBlocker;
+import com.GuroAka.Block.Twitter.GuroAkaTwitter.Verifi;
 import com.GuroAka.Block.data.DataUserAccount;
 import com.GuroAka.Block.repositories.UserAccountDataRepository;
 import com.carrotsearch.sizeof.RamUsageEstimator;
@@ -69,17 +70,13 @@ public class GuroAkaBlockCron {
 				builder.setOAuthAccessTokenSecret(userData.getAccessTokenSecret());
 				twitter = new TwitterFactory(builder.build()).getInstance();
 				twitter.showUser(twitter.verifyCredentials().getId());
-				twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstanceByManager(twitter);
+				twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstance(twitter,Verifi.NoChange);
 				twitterBlocker.doBlock();
 				userData.setLastblockdate(new Date());
 			} catch (TwitterException e) {
 				LOG.fatal(e.getMessage());
 				userData.setVerify(false);
-			} finally {
 				userAccountDataRepository.save(userData);
-				builder = null;
-				twitter = null;
-				twitterBlocker = null;
 			}
 
 		}

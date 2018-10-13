@@ -16,7 +16,7 @@ import org.springframework.core.io.Resource;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import twitter4j.MediaEntity;
+import twitter4j.ExtendedMediaEntity;
 import twitter4j.Status;
 import twitter4j.StatusUpdate;
 import twitter4j.Twitter;
@@ -34,7 +34,7 @@ public class DataSearchResult
 {
 	private static final Log LOG = LogFactory.getLog(DataSearchResult.class);
 	private static final String ls = System.lineSeparator();
-	public DataSearchResult(MediaEntity mediaEntity, Status status,Long hitstatusid) {
+	public DataSearchResult(ExtendedMediaEntity mediaEntity, Status status,Long hitstatusid) {
 		User user = status.getUser();
 		setUserid(user.getId());
 		setScreenname(user.getScreenName());

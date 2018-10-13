@@ -5,9 +5,12 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
 import javax.persistence.Table;
+
 import com.GuroAka.Block.Blockresult;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 
 @Entity
@@ -35,30 +38,6 @@ public class DataBlockedHistory {
 	public String toString() {
 		// TODO 自動生成されたメソッド・スタブ
 		return userid + "/" + guroakaid + "/" + blocked.getProperty();
-	}
-
-	public Long getUserid() {
-		return userid;
-	}
-
-	public void setUserid(Long userid) {
-		this.userid = userid;
-	}
-
-	public Long getGuroakaid() {
-		return guroakaid;
-	}
-
-	public void setGuroakaid(Long guroakaid) {
-		this.guroakaid = guroakaid;
-	}
-
-	public Blockresult getBlocked() {
-		return blocked;
-	}
-
-	public void setBlocked(Blockresult blocked) {
-		this.blocked = blocked;
 	}
 
 }

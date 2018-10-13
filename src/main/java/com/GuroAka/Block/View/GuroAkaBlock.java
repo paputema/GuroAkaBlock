@@ -12,12 +12,11 @@ import org.springframework.web.servlet.ModelAndView;
 
 import com.GuroAka.Block.Twitter.GuroAkaTwitter;
 import com.GuroAka.Block.Twitter.GuroAkaTwitter.TwitterBlocker;
+import com.GuroAka.Block.Twitter.GuroAkaTwitter.Verifi;
 import com.GuroAka.Block.Twitter.Results;
 import com.GuroAka.Block.data.DataGuroAccount;
-import com.GuroAka.Block.data.DataUserAccount;
 import com.GuroAka.Block.data.DataWhiteListAccount;
 import com.GuroAka.Block.repositories.GuroAccountDataRepository;
-import com.GuroAka.Block.repositories.UserAccountDataRepository;
 import com.GuroAka.Block.repositories.WhiteListAccountDataRepository;
 
 import twitter4j.Status;
@@ -44,8 +43,6 @@ public class GuroAkaBlock {
 	private GuroAccountDataRepository guroAccountDataRepository;
 	@Autowired
 	private WhiteListAccountDataRepository whiteListAccountDataRepository;
-	@Autowired
-	private UserAccountDataRepository userAccountDataRepository;
 
 	private List<DataGuroAccount> dataGuroAccounts = new ArrayList<>();
 	@Autowired
@@ -209,19 +206,8 @@ public class GuroAkaBlock {
 			String verifier = request.getParameter("oauth_verifier"); //$NON-NLS-1$
 			accessToken = oath.getOAuthAccessToken(verifier);
 			Twitter twitter = new TwitterFactory(createConfiguration()).getInstance(accessToken);
-			TwitterBlocker twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstance(twitter);
-
-
-			DataUserAccount dataUserAccount = userAccountDataRepository.findByUserid(twitter.getId());
-			if(dataUserAccount == null)
-			{
-				dataUserAccount = new DataUserAccount();
-				dataUserAccount.setUserid(twitter.getId());
-			}
-			dataUserAccount.setAccessToken(accessToken.getToken());
-			dataUserAccount.setAccessTokenSecret(accessToken.getTokenSecret());
-			dataUserAccount.setVerify(true);
-			userAccountDataRepository.saveAndFlush(dataUserAccount);
+			TwitterBlocker twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstance(twitter,Verifi.True);
+			session.setAttribute("twitterBlocker", twitterBlocker);
 
 
 			session.setMaxInactiveInterval(3600);
@@ -258,18 +244,9 @@ public class GuroAkaBlock {
 			String verifier = request.getParameter("oauth_verifier"); //$NON-NLS-1$
 			accessToken = oath.getOAuthAccessToken(verifier);
 			Twitter twitter = new TwitterFactory(createConfiguration()).getInstance(accessToken);
-			TwitterBlocker twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstance(twitter);
+			TwitterBlocker twitterBlocker = guroAkaTwitter.TwitterBlockerGetInstance(twitter,GuroAkaTwitter.Verifi.False);
+			session.setAttribute("twitterBlocker", twitterBlocker);
 
-			DataUserAccount dataUserAccount = userAccountDataRepository.findByUserid(twitter.getId());
-			if(dataUserAccount == null)
-			{
-				dataUserAccount = new DataUserAccount();
-				dataUserAccount.setUserid(twitter.getId());
-			}
-			dataUserAccount.setAccessToken(accessToken.getToken());
-			dataUserAccount.setAccessTokenSecret(accessToken.getTokenSecret());
-			dataUserAccount.setVerify(false);
-			userAccountDataRepository.saveAndFlush(dataUserAccount);
 
 
 			session.setMaxInactiveInterval(3600);

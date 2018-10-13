@@ -1,18 +1,30 @@
 package com.GuroAka.Block.data;
 
 import java.util.Date;
+import java.util.Map;
 
+import javax.persistence.CollectionTable;
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.MapKeyColumn;
 import javax.persistence.Table;
+
+import com.GuroAka.Block.Blockresult;
+
+import lombok.Data;
 
 @Entity
 @Table(name = "useraccount")
+@Data
 public class DataUserAccount {
 	public DataUserAccount() {
 		super();
 		lastblockdate = new Date();
+		setVerify(true);
 	}
 	@Id
 	@Column
@@ -25,35 +37,15 @@ public class DataUserAccount {
 	private Date lastblockdate;
 	@Column(name = "verify")
 	private boolean verify;
-	public Long getUserid() {
-		return userid;
-	}
-	public void setUserid(Long userid) {
-		this.userid = userid;
-	}
-	public String getAccessToken() {
-		return AccessToken;
-	}
-	public void setAccessToken(String accessToken) {
-		AccessToken = accessToken;
-	}
-	public String getAccessTokenSecret() {
-		return AccessTokenSecret;
-	}
-	public void setAccessTokenSecret(String accessTokenSecret) {
-		AccessTokenSecret = accessTokenSecret;
-	}
-	public Date getLastblockdate() {
-		return lastblockdate;
-	}
-	public void setLastblockdate(Date lastblockdate) {
-		this.lastblockdate = lastblockdate;
-	}
-	public boolean isVerify() {
-		return verify;
-	}
-	public void setVerify(boolean verify) {
-		this.verify = verify;
-	}
+
+
+	@ElementCollection(fetch=FetchType.EAGER)
+	@MapKeyColumn(name="guroakaid")
+    @Column(name="blocked")
+    @CollectionTable(
+        name="blockedhistory",
+        joinColumns=@JoinColumn(name="userid")
+    )
+	private Map<Long, Blockresult>  blockedHistory;
 
 }

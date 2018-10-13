@@ -29,11 +29,10 @@ import org.supercsv.prefs.CsvPreference;
 import com.GuroAka.Block.Blockresult;
 import com.GuroAka.Block.csv.GuroAkaCsv;
 import com.GuroAka.Block.data.DataBlockLog;
-import com.GuroAka.Block.data.DataBlockedHistory;
-import com.GuroAka.Block.data.DataBlockedHistoryKeyId;
 import com.GuroAka.Block.data.DataGuroAccount;
 import com.GuroAka.Block.data.DataGuroAccountList;
 import com.GuroAka.Block.data.DataSearchResult;
+import com.GuroAka.Block.data.DataUserAccount;
 import com.GuroAka.Block.data.DataVolunteerList;
 import com.GuroAka.Block.data.DataWhiteListAccount;
 import com.GuroAka.Block.data.SauceData;
@@ -43,6 +42,7 @@ import com.GuroAka.Block.repositories.GuroAkaSearchResultDataRepository;
 import com.GuroAka.Block.repositories.ListDataRepository;
 import com.GuroAka.Block.repositories.RepositoryDataBlockedHistory;
 import com.GuroAka.Block.repositories.SauceDataRepository;
+import com.GuroAka.Block.repositories.UserAccountDataRepository;
 import com.GuroAka.Block.repositories.VolunteerDataRepository;
 import com.GuroAka.Block.repositories.WhiteListAccountDataRepository;
 import com.github.mygreen.supercsv.io.CsvAnnotationBeanReader;
@@ -62,8 +62,13 @@ import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.User;
 import twitter4j.UserList;
+import twitter4j.auth.AccessToken;
 @Service
 public class GuroAkaTwitter {
+	public enum Verifi
+	{
+		True,False,NoChange
+	}
 	private static final Log LOG = LogFactory.getLog(GuroAkaTwitter.class);
 	@Autowired
 	private SauceDataRepository sauceDataRepository;
@@ -81,6 +86,8 @@ public class GuroAkaTwitter {
 	private  GuroAkaSearchResultDataRepository guroAkaSearchResultDataRepository;
 	@Autowired
 	private RepositoryDataBlockedHistory repositoryDataBlockedHistory;
+	@Autowired
+	private UserAccountDataRepository userAccountDataRepository;
 	private  String lineCd = System.getProperty("line.separator");
 	@Value("${scv.path}")
 	private String dir;
@@ -100,25 +107,44 @@ public class GuroAkaTwitter {
 	{
 		return managerTwitter.getRetweets(status);
 	}
-	public TwitterBlocker TwitterBlockerGetInstance(Twitter twitter)
+	public TwitterBlocker TwitterBlockerGetInstance(Twitter twitter, Verifi verifi) throws TwitterException
 	{
-		TwitterBlocker ret = new TwitterBlocker(twitter);
-		return ret;
-	}
-	public TwitterBlocker TwitterBlockerGetInstanceByManager(Twitter twitter) {
-		TwitterBlocker ret = new TwitterBlocker(twitter);
+		TwitterBlocker ret = new TwitterBlocker(twitter,verifi);
 		return ret;
 	}
 
 	public class TwitterBlocker{
+
+		private DataUserAccount dataUserAccount;
 		public TwitterBlocker()
 		{
 			this.twitter = TwitterFactory.getSingleton();
 			this.getGuroAkaUsers();
 		}
-		public TwitterBlocker(Twitter twitter)
+		public TwitterBlocker(Twitter twitter, Verifi verifi) throws TwitterException
 		{
 			this.twitter = twitter;
+
+			DataUserAccount dataUserAccount = userAccountDataRepository.findByUserid(twitter.getId());
+			if(dataUserAccount == null)
+			{
+				dataUserAccount = new DataUserAccount();
+				dataUserAccount.setUserid(twitter.getId());
+			}
+			AccessToken accessToken = twitter.getOAuthAccessToken();
+			dataUserAccount.setAccessToken(accessToken.getToken());
+			dataUserAccount.setAccessTokenSecret(accessToken.getTokenSecret());
+			switch (verifi) {
+			case True:
+				dataUserAccount.setVerify(true);
+				break;
+			case False:
+				dataUserAccount.setVerify(false);
+				break;
+			default:
+				break;
+			}
+			this.dataUserAccount = dataUserAccount;
 		}
 
 		private RateLimitStatus rateLimitStatusGetRtw = null;
@@ -287,21 +313,24 @@ public class GuroAkaTwitter {
 		}
 
 		private RateLimitStatus rateLimitStatusRelationship = null;
-		private DataBlockedHistory isBlocked(DataBlockedHistoryKeyId id)
+		private Blockresult isBlocked(Long id)
 		{
-			DataBlockedHistory blockedHistory = repositoryDataBlockedHistory.findOne(id);
-			Blockresult blockresult = Blockresult.UnBlocked;
-			try {
+			Blockresult blockresult = dataUserAccount.getBlockedHistory().get(id);
 
-				if(blockedHistory == null)
-				{
-					blockedHistory = new DataBlockedHistory(id.getUserid(), id.getGuroakaid());
+			if(blockresult == null)
+			{
+				blockresult = Blockresult.UnBlocked;
+
+				try {
 					sleepRateLimit(rateLimitStatusRelationship);
-					Relationship relationship = twitter.showFriendship(blockedHistory.getUserid(), blockedHistory.getGuroakaid());
+					Relationship relationship;
+
+					relationship = twitter.showFriendship(dataUserAccount.getUserid(), id);
+
 					rateLimitStatusRelationship = relationship.getRateLimitStatus();
 					if(relationship.isSourceBlockingTarget())
 					{
-						if (whiteListAccountDataRepository.existsByUserid(blockedHistory.getGuroakaid()) == true)
+						if (whiteListAccountDataRepository.existsByUserid(id) == true)
 						{
 							blockresult = Blockresult.InWhiteListBlocked;
 						}else
@@ -311,20 +340,76 @@ public class GuroAkaTwitter {
 					}else if(relationship.isSourceFollowingTarget())
 					{
 						blockresult = Blockresult.FF;
-					}else if(whiteListAccountDataRepository.existsByUserid(blockedHistory.getGuroakaid()) == true)
+					}else if(whiteListAccountDataRepository.existsByUserid(id) == true)
 					{
 						blockresult = Blockresult.InWhiteListUnBlocked;
 					}
-				}else
-				{
-					blockresult = blockedHistory.getBlocked();
+
+				} catch (TwitterException e) {
+					// TODO 自動生成された catch ブロック
+					e.printStackTrace();
 				}
-			} catch (IllegalStateException | TwitterException e) {
-				// TODO 自動生成された catch ブロック
-				e.printStackTrace();
 			}
-			blockedHistory.setBlocked(blockresult);
-			return blockedHistory;
+			return blockresult;
+		}
+
+		public Result doBlock(Long targetId) throws TwitterException
+		{
+			User guroAkaUser = twitter.showUser(targetId);
+			Result ret = doBlock(guroAkaUser);
+			userAccountDataRepository.saveAndFlush(dataUserAccount);
+			return ret;
+		}
+		private void setBlocked(User guroAkaUser,Blockresult blockedHistory) {
+			dataUserAccount.getBlockedHistory().put(guroAkaUser.getId(), blockedHistory);
+		}
+
+		public Result doBlock(User guroAkaUser) throws TwitterException
+		{
+				Result ret = null;
+				Blockresult blockedHistory = dataUserAccount.getBlockedHistory().get(guroAkaUser.getId());
+				if(blockedHistory == null)
+				{
+					blockedHistory = isBlocked(guroAkaUser.getId());
+				}
+				switch (blockedHistory) {
+				case UnBlocked:
+				case Failure:
+					checkRateLimit(twitter.createBlock(guroAkaUser.getId()).getRateLimitStatus());
+					checkRateLimit(twitter.reportSpam(guroAkaUser.getId()).getRateLimitStatus());
+					Calendar calendar = Calendar.getInstance();
+					calendar.add(Calendar.MONTH, -3);
+					if (guroAkaUser.getCreatedAt().before(calendar.getTime())) {
+						ret = (new Result(guroAkaUser,"ブロックしました(3ヶ月以上前から存在するアカウント：" + guroAkaUser.getCreatedAt().toString(), blockedHistory));
+					} else {
+						ret = (new Result(guroAkaUser, "ブロックしました", blockedHistory));
+					}
+					setBlocked(guroAkaUser,Blockresult.Blocked);
+					break;
+				case InWhiteListBlocked:
+					checkRateLimit(twitter.destroyBlock(guroAkaUser.getId()).getRateLimitStatus());
+					ret = (new Result(guroAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました", blockedHistory));
+					setBlocked(guroAkaUser,Blockresult.InWhiteListUnBlocked);
+					break;
+				case InWhiteListUnBlocked:
+					ret = (new Result(guroAkaUser,"ホワイトリスト入りのアカウントです", blockedHistory));
+					break;
+				case FF:
+					ret = (new Result(guroAkaUser, "現在フォロー中のアカウントです", blockedHistory));
+					break;
+				case Blocked:
+				case Success:
+					ret = (new Result(guroAkaUser, "ブロック済みです", blockedHistory));
+				default:
+					break;
+				}
+			return ret;
+
+		}
+		public Map<Long, Blockresult> getMapBlockedHistory()
+		{
+			Map<Long, Blockresult> ret = dataUserAccount.getBlockedHistory();
+			return ret;
 		}
 
 		public Results doBlock() {
@@ -333,72 +418,38 @@ public class GuroAkaTwitter {
 			String ResultsText = new String();
 			try {
 				long UserId = twitter.getId();
-				Calendar calendar = Calendar.getInstance();
-				calendar.add(Calendar.MONTH, -3);
 
-				Map<Long, DataBlockedHistory> mapBlockedHistory =  repositoryDataBlockedHistory.findByUseridMap(UserId);
+
 
 				for (User guroAkaUser : getGuroAkaUsers().values()) {
-					DataBlockedHistory blockedHistory =  mapBlockedHistory.get(guroAkaUser.getId());
-					if(blockedHistory == null)
-					{
-						isBlocked(new DataBlockedHistoryKeyId(UserId, guroAkaUser.getId()));
-						mapBlockedHistory.put(guroAkaUser.getId(), blockedHistory);
-					}
 					try {
-						switch (blockedHistory.getBlocked()) {
-						case UnBlocked:
-						case Failure:
-							checkRateLimit(twitter.createBlock(guroAkaUser.getId()).getRateLimitStatus());
-							checkRateLimit(twitter.reportSpam(guroAkaUser.getId()).getRateLimitStatus());
-							if (guroAkaUser.getCreatedAt().before(calendar.getTime())) {
-								ListResultBlock.add(new Result(guroAkaUser,"ブロックしました(3ヶ月以上前から存在するアカウント：" + guroAkaUser.getCreatedAt().toString()));
-							} else {
-								ListResultBlock.add(new Result(guroAkaUser, "ブロックしました"));
-							}
-							blockedHistory.setBlocked(Blockresult.Blocked);
-							break;
-						case InWhiteListBlocked:
-							checkRateLimit(twitter.destroyBlock(guroAkaUser.getId()).getRateLimitStatus());
-							ListResultNotBlock.add(new Result(guroAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました"));
-							blockedHistory.setBlocked(Blockresult.InWhiteListUnBlocked);
-							break;
-						case InWhiteListUnBlocked:
-							ListResultNotBlock.add(new Result(guroAkaUser,"ホワイトリスト入りのアカウントです"));
-							break;
-						case FF:
-							ListResultNotBlock.add(new Result(guroAkaUser, "現在フォロー中のアカウントです"));
-							break;
-						case Blocked:
-						case Success:
-							ListResultBlock.add(new Result(guroAkaUser, "ブロック済みです"));
-						default:
+						Result result = doBlock(guroAkaUser);
+						setBlocked(guroAkaUser, result.getBlockedHistory());
+						ListResultBlock.add(result);
 
-							break;
-						}
 					} catch (TwitterException e) {
 						// TODO 自動生成された catch ブロック
 						//e.printStackTrace();
 						ResultsText  = "ブロック実行中にエラーが発生しました、しばらくたってから再度実行してみてください。" + lineCd;
-						ListResultBlock.add(new Result(guroAkaUser,e.getErrorMessage() + ":" + e.getMessage()));
+						setBlocked(guroAkaUser, Blockresult.Failure);
+						ListResultBlock.add(new Result(guroAkaUser,e.getErrorMessage() + ":" + e.getMessage(), Blockresult.Failure));
 						checkRateLimit(e.getRateLimitStatus());
 					}
-					repositoryDataBlockedHistory.save(blockedHistory);
 				}
 				for (User whiteAkaUser : GetWhiteAkaByDb().values()) {
-					DataBlockedHistory blockedHistory =  mapBlockedHistory.get(whiteAkaUser.getId());
+					Blockresult blockedHistory =  dataUserAccount.getBlockedHistory().get(whiteAkaUser.getId());
 					if(blockedHistory == null)
 					{
-						isBlocked(new DataBlockedHistoryKeyId(UserId, whiteAkaUser.getId()));
-						mapBlockedHistory.put(whiteAkaUser.getId(), blockedHistory);
+						blockedHistory = isBlocked(whiteAkaUser.getId());
+						setBlocked(whiteAkaUser, blockedHistory);
 					}
-					if (blockedHistory.getBlocked() == Blockresult.InWhiteListBlocked) {
+					if (blockedHistory == Blockresult.InWhiteListBlocked) {
 						checkRateLimit(twitter.destroyBlock(whiteAkaUser.getId()).getRateLimitStatus());
-						ListResultNotBlock.add(new Result(whiteAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました"));
-						blockedHistory.setBlocked(Blockresult.InWhiteListUnBlocked);
+						blockedHistory = (Blockresult.InWhiteListUnBlocked);
+						setBlocked(whiteAkaUser, blockedHistory);
+						ListResultNotBlock.add(new Result(whiteAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました", blockedHistory));
 
 					}
-					repositoryDataBlockedHistory.save(blockedHistory);
 				}
 				repositoryDataBlockedHistory.flush();
 				blockLogDataRepository.saveAndFlush(new DataBlockLog(UserId));
@@ -407,6 +458,7 @@ public class GuroAkaTwitter {
 				//e.printStackTrace();
 				ResultsText = "ブロック実行中にエラーが発生しました、しばらくたってから再度実行してみてください。" + lineCd;
 			}
+			userAccountDataRepository.saveAndFlush(dataUserAccount);
 			return new Results(ListResultBlock,ListResultNotBlock,ResultsText);
 		}
 		public Map<Long,User> getGuroAkaUsers() {
@@ -547,45 +599,62 @@ public class GuroAkaTwitter {
 				final long UserId = twitter.getId();
 				final Calendar calendar = Calendar.getInstance();
 				calendar.add(Calendar.MONTH, -3);
-
+				ArrayList<Long> removeidList = new ArrayList<>();
 				executorService.submit(new Runnable() {
 					public void run() {
-						for (final User guroAkaUser : guroAkaUsers.values()) {
-							DataBlockedHistory blockedHistory = isBlocked(new DataBlockedHistoryKeyId(UserId, guroAkaUser.getId()));
+						for (final Long guroAkaUserId : dataUserAccount.getBlockedHistory().keySet()) {
+							Blockresult blockedHistory = isBlocked(guroAkaUserId);
 							try {
-								sleepRateLimit(twitter.destroyBlock(guroAkaUser.getId()).getRateLimitStatus());
-								blockedHistory.setBlocked(Blockresult.UnBlocked);
-								ListResultBlock.add(new Result(guroAkaUser, "ブロック解除しました"));
+								User guroAkaUser = twitter.destroyBlock(guroAkaUserId);
+								sleepRateLimit(guroAkaUser.getRateLimitStatus());
+								blockedHistory = Blockresult.UnBlocked;
+								ListResultBlock.add(new Result(guroAkaUser, "ブロック解除しました", blockedHistory));
+								removeidList.add(guroAkaUserId);
 								//LOG.debug(guroAkaUser.getName() + guroAkaUser.getScreenName() + "ブロック解除しました");
 							} catch (TwitterException e) {
 								// TODO 自動生成された catch ブロック
 								Relationship relationship;
 								try {
-									relationship = twitter.showFriendship(UserId, guroAkaUser.getId());
-									if(relationship.isSourceBlockingTarget())
-									{
-										ListResultBlock.add(new Result(guroAkaUser, "ブロックに失敗しました"));
-									}else
-									{
-										ListResultBlock.add(new Result(guroAkaUser, "ブロックしていません"));
+									switch (e.getErrorCode()) {
+									case 34:
+										ListResultBlock.add(new Result("intent/user?user_id=" + guroAkaUserId, "凍結済みのアカウントです。", blockedHistory));
+										removeidList.add(guroAkaUserId);
+										break;
+
+									default:
+										relationship = twitter.showFriendship(UserId, guroAkaUserId);
+										if(relationship.isSourceBlockingTarget())
+										{
+											ListResultBlock.add(new Result(relationship.getTargetUserScreenName(), "ブロック解除に失敗しました", blockedHistory));
+										}else
+										{
+											ListResultBlock.add(new Result(relationship.getTargetUserScreenName(), "ブロックしていません", blockedHistory));
+										}
+										blockedHistory = (Blockresult.Failure);
+										break;
 									}
-								blockedHistory.setBlocked(Blockresult.Failure);
 								} catch (TwitterException e1) {
 									// TODO 自動生成された catch ブロック
 									e1.printStackTrace();
+									ListResultBlock.add(new Result("エラーが起こりました:", e1.getErrorMessage(), blockedHistory));
 								}
 							}finally {
-								repositoryDataBlockedHistory.saveAndFlush(blockedHistory);
+
 							}
 						}
+						for (Long removeid : removeidList) {
+							dataUserAccount.getBlockedHistory().remove(removeid);
+						}
+						userAccountDataRepository.saveAndFlush(dataUserAccount);
 					};
 				});
 
 				for (User whiteAkaUser : GetWhiteAkaByDb().values()) {
-					DataBlockedHistory blockedHistory = isBlocked(new DataBlockedHistoryKeyId(UserId, whiteAkaUser.getId()));
-					if (blockedHistory.getBlocked() == Blockresult.InWhiteListBlocked) {
+					Blockresult blockedHistory = isBlocked(whiteAkaUser.getId());
+					if (blockedHistory == Blockresult.InWhiteListBlocked) {
 						checkRateLimit(twitter.destroyBlock(whiteAkaUser.getId()).getRateLimitStatus());
-						ListResultNotBlock.add(new Result(whiteAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました"));
+						blockedHistory = (Blockresult.InWhiteListUnBlocked);
+						ListResultNotBlock.add(new Result(whiteAkaUser,"ホワイトリスト入りのアカウントですブロックを解除しました", blockedHistory));
 					}
 				}
 				blockLogDataRepository.saveAndFlush(new DataBlockLog(UserId));
@@ -606,13 +675,12 @@ public class GuroAkaTwitter {
 				{
 					ResultsText = guroAkaUsers.size() + "アカウント中" + ListResultBlock.size() + "アカウントにブロックを解除しました、残りを引き続きブロック解除します。ページは閉じて大丈夫です。";
 				}
-
+				blockLogDataRepository.flush();
 			} catch (TwitterException e) {
 				// TODO 自動生成された catch ブロック
 				//e.printStackTrace();
 				ResultsText = "ブロック実行中にエラーが発生しました、しばらくたってから再度実行してみてください。" + lineCd;
 			}
-
 			return new Results(ListResultBlock,ListResultNotBlock,ResultsText);
 		}
 		public void ConstructListDetails()
@@ -644,7 +712,6 @@ public class GuroAkaTwitter {
 			}
 			return ret;
 		}
-
 	}
 	private Boolean checkRateLimit(RateLimitStatus rateLimitStatus) {
 
@@ -707,25 +774,6 @@ public class GuroAkaTwitter {
 		return managerTwitter.GetGuroAkaByList(listid);
 	}
 
-	public void BlockAndReport(Twitter twitter,Long guroAkaId)  {
-		User guroaka = null ;
-		try {
-			Long UserId = twitter.getId();
-			Relationship relationship = twitter.showFriendship(UserId, guroAkaId);
-			sleepRateLimit(relationship.getRateLimitStatus());
-			if ((managerTwitter.GetWhiteAkaByDb().containsKey(guroAkaId) || relationship.isSourceFollowingTarget()) && relationship.isSourceBlockingTarget()) {
-				twitter.destroyBlock(guroAkaId);
-				LOG.debug(twitter.getId() + "が" + guroAkaId + "をブロック解除");
-			} else if (!relationship.isSourceBlockingTarget()) {
-				guroaka = twitter.createBlock(guroAkaId);
-				sleepRateLimit(guroaka.getRateLimitStatus());
-				sleepRateLimit(twitter.reportSpam(guroAkaId).getRateLimitStatus());
-				LOG.debug(twitter.getId() + "が" + guroAkaId + "をブロック");
-			}
-		} catch (TwitterException e) {
-
-		}
-	}
 	public Status getStatus(long searchSinceId) throws TwitterException {
 		// TODO 自動生成されたメソッド・スタブ
 		return managerTwitter.getStatus(searchSinceId);

@@ -42,16 +42,11 @@ public class AlertTagSearchCron {
 
 
 	private static final Log LOG = LogFactory.getLog(AlertTagSearchCron.class);
+	private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
-
-	@Scheduled(initialDelay = 10 * 60 * 1000, fixedDelay = 10 * 60 * 1000)
+	@Scheduled(initialDelay = 0 * 60 * 1000, fixedDelay = 10 * 60 * 1000)
 	public void alertTagSearch() {
 		LOG.info("注意喚起タグ検索開始");
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-		Calendar daySince = Calendar.getInstance();
-		Calendar dayUntil = Calendar.getInstance();
-		dayUntil.add(Calendar.DAY_OF_MONTH, 1);
-
 
 
 		//Query query = new Query("#このリプ欄にはグロ画像があります exclude:retweets filter:replies");
@@ -60,7 +55,10 @@ public class AlertTagSearchCron {
 		//query.setLang("ja");
 		query.setCount(100);
 		query.setResultType(Query.MIXED);
+		Calendar daySince = Calendar.getInstance();
 		query.setSince(dateFormat.format(daySince.getTime()));
+		Calendar dayUntil = Calendar.getInstance();
+		dayUntil.add(Calendar.DAY_OF_MONTH, 1);
 		query.setUntil(dateFormat.format(dayUntil.getTime()));
 
 		QueryResult queryResult;
@@ -114,11 +112,11 @@ public class AlertTagSearchCron {
 		}
 		alertTagSearchResultData.setAlertTagStatus(alertTagStatus);
 
-		Query query = new Query(screenName + " (filter:images OR filter:links)  exclude:retweets -#このリプ欄にはグロ画像があります");
+		Query query = new Query(screenName + " (filter:links OR card_name:animated_gif) exclude:retweets -#このリプ欄にはグロ画像があります");
 		query.setCount(100);
-		query.setResultType(Query.RECENT);
+		query.setResultType(Query.MIXED);
 		query.setSinceId(searchSinceId);
-		query.setMaxId(alertTagStatus.getId());
+		//query.setMaxId(alertTagStatus.getId());
 		QueryResult queryResult = null;
 		if(RateLimitChecker.checkRateLimit(rateLimitStatusSearch)){
 			LOG.info(query.getQuery());
@@ -146,10 +144,12 @@ public class AlertTagSearchCron {
 			LOG.info(alertTagSearchResultData.toString());
 			alertTagSearchResultDataRepository.saveAndFlush(alertTagSearchResultData);
 
-			String status = "(新機能試験中)" + ls
+			String status = "注意喚起タグ自動検索" + ls
 					+ "被害者 https://twitter.com/-/status/"  + searchSinceId + ls
-					+ "タグ https://twitter.com/-/status/" + alertTagStatus.getId() + ls
-					+ "http://chupacabrasmon.ddns.net/GuroAkaBlock/Status/" + searchSinceId;
+					+ "タグ https://twitter.com/" + alertTagStatus.getUser().getScreenName() + "/status/" + alertTagStatus.getId() + ls
+					+ "http://chupacabrasmon.ddns.net/GuroAkaBlock/Status/" + searchSinceId  + ls
+					+ "画像にモザイクを掛けた状態でリプライを確認";
+
 			StatusUpdate statusUpdate = new StatusUpdate(status);
 			reportTweet(statusUpdate);
 		}
